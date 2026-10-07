@@ -1,101 +1,220 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ArcElement
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ArcElement
+);
+
+// Common Chart.js styling options for dark theme
+const commonOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      labels: {
+        color: '#94a3b8',
+        font: { family: "'Inter', sans-serif", size: 12 }
+      }
+    },
+    tooltip: {
+      backgroundColor: 'rgba(15, 23, 42, 0.9)',
+      titleColor: '#f1f5f9',
+      bodyColor: '#cbd5e1',
+      borderColor: 'rgba(51, 65, 85, 0.5)',
+      borderWidth: 1,
+      padding: 12,
+      cornerRadius: 8,
+      displayColors: true,
+    }
+  },
+  scales: {
+    x: {
+      grid: {
+        display: false,
+        drawBorder: false,
+      },
+      ticks: {
+        color: '#64748b',
+        font: { family: "'Inter', sans-serif" }
+      }
+    },
+    y: {
+      grid: {
+        color: 'rgba(51, 65, 85, 0.3)',
+        drawBorder: false,
+      },
+      ticks: {
+        color: '#64748b',
+        font: { family: "'Inter', sans-serif" },
+        callback: function(value) {
+          return '$' + value.toLocaleString();
+        }
+      }
+    }
+  }
+};
 
 export function RevenueTrendChart({ data }) {
+  const chartRef = useRef(null);
+  const [chartData, setChartData] = useState({ datasets: [] });
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    // Create Gradient for Line Chart
+    const ctx = chart.ctx;
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.5)'); // Indigo-500
+    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+    setChartData({
+      labels: data.map(d => d.order_date),
+      datasets: [
+        {
+          label: 'Revenue',
+          data: data.map(d => d.revenue),
+          borderColor: '#6366f1',
+          backgroundColor: gradient,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4, // Smooth curves
+          pointRadius: 0, // Hide points
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: '#ffffff',
+          pointHoverBorderColor: '#6366f1',
+          pointHoverBorderWidth: 2,
+        }
+      ]
+    });
+  }, [data]);
+
   return (
-    <div className="lg:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+    <div className="lg:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-xl shadow-black/20 relative overflow-hidden group">
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 relative z-10 text-slate-100">
+        <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]"></span>
         Revenue Trend
       </h2>
-      <div className="h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="order_date" stroke="#64748b" tick={{fill: '#94a3b8', fontSize: 12}} />
-            <YAxis stroke="#64748b" tick={{fill: '#94a3b8', fontSize: 12}} tickFormatter={(value) => `$${value}`} />
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px' }}
-              itemStyle={{ color: '#e2e8f0' }}
-            />
-            <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-          </AreaChart>
-        </ResponsiveContainer>
+      <div className="h-[300px] w-full relative z-10">
+        <Line ref={chartRef} data={chartData} options={commonOptions} />
       </div>
     </div>
   );
 }
 
 export function FulfillmentChart({ data }) {
+  const chartData = {
+    labels: data.map(d => d.status),
+    datasets: [
+      {
+        data: data.map(d => d.count),
+        backgroundColor: [
+          '#10b981', // Delivered (Emerald)
+          '#f59e0b', // Delayed (Amber)
+          '#3b82f6', // In Transit (Blue)
+        ],
+        hoverBackgroundColor: [
+          '#059669',
+          '#d97706',
+          '#2563eb',
+        ],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }
+    ]
+  };
+
+  const options = {
+    ...commonOptions,
+    scales: { x: { display: false }, y: { display: false } },
+    cutout: '75%',
+    plugins: {
+      ...commonOptions.plugins,
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: '#94a3b8',
+          usePointStyle: true,
+          padding: 20,
+          font: { family: "'Inter', sans-serif", size: 12 }
+        }
+      }
+    }
+  };
+
   return (
-    <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-pink-500"></span>
+    <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-xl shadow-black/20 relative overflow-hidden group">
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 relative z-10 text-slate-100">
+        <span className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]"></span>
         Fulfillment Status
       </h2>
-      <div className="h-[300px] w-full flex items-center justify-center">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              innerRadius={80}
-              outerRadius={110}
-              paddingAngle={5}
-              dataKey="count"
-              nameKey="status"
-              stroke="none"
-            >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.status === 'Delivered' ? '#10b981' : entry.status === 'Delayed' ? '#f59e0b' : '#3b82f6'} />
-              ))}
-            </Pie>
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px' }}
-              itemStyle={{ color: '#e2e8f0' }}
-            />
-            <Legend verticalAlign="bottom" height={36} iconType="circle" />
-          </PieChart>
-        </ResponsiveContainer>
+      <div className="h-[300px] w-full relative z-10 flex items-center justify-center">
+        <Doughnut data={chartData} options={options} />
       </div>
     </div>
   );
 }
 
 export function CategoryChart({ data }) {
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  
+  const chartData = {
+    labels: data.map(d => d.Category),
+    datasets: [
+      {
+        label: 'Revenue',
+        data: data.map(d => d.revenue),
+        backgroundColor: data.map((_, i) => colors[i % colors.length]),
+        borderRadius: 6, // Rounded corners on bars!
+        borderSkipped: false,
+        barPercentage: 0.6,
+      }
+    ]
+  };
+
+  const options = {
+    ...commonOptions,
+    plugins: {
+      ...commonOptions.plugins,
+      legend: {
+        display: false // Hide legend for bar chart since x-axis has labels
+      }
+    }
+  };
+
   return (
-    <div className="lg:col-span-3 bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+    <div className="lg:col-span-3 bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-xl shadow-black/20 relative overflow-hidden group">
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 relative z-10 text-slate-100">
+        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
         Revenue by Category
       </h2>
-      <div className="h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <XAxis dataKey="Category" stroke="#64748b" tick={{fill: '#94a3b8', fontSize: 12}} />
-            <YAxis stroke="#64748b" tick={{fill: '#94a3b8', fontSize: 12}} tickFormatter={(value) => `$${value}`} />
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-            <Tooltip 
-              cursor={{fill: '#334155', opacity: 0.4}}
-              contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px' }}
-            />
-            <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="h-[300px] w-full relative z-10">
+        <Bar data={chartData} options={options} />
       </div>
     </div>
   );
