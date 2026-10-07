@@ -3,7 +3,7 @@ services:
     name: analytics-backend
     env: python
     buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port 10000"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.3"
@@ -30,7 +30,7 @@ services:
 
     envVars:
       - key: NODE_VERSION
-        value: "18"
+        value: "20"
       - key: VITE_API_URL
         fromService:
           type: web
