@@ -1,93 +1,9 @@
-import io
 import pandas as pd
-import xmltodict
-import httpx
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File
-from models import JSONIngestRequest
 from database import engine
+from utils.external_api import get_exchange_rate
 
-router = APIRouter()
-
-@router.post("/ingest/json")
-async def ingest_json(request: JSONIngestRequest):
-    records = []
-    for order in request.orders:
-        for item in order.items:
-            records.append({
-                "order_id": str(order.order_id),
-                "customer_id": order.customer.id,
-                "customer_name": order.customer.name,
-                "order_date": order.order_date,
-                "product_id": item.product_id,
-                "qty": item.qty,
-                "price": item.price
-            })
-    if records:
-        df_new = pd.DataFrame(records)
-        df_new.to_sql("orders", engine, if_exists="append", index=False, method="multi", chunksize=1000)
-    return {"message": "JSON data ingested successfully into SQL DB", "records_inserted": len(records)}
-
-@router.post("/ingest/xml")
-async def ingest_xml(request: Request):
-    try:
-        body = await request.body()
-        data = xmltodict.parse(body)
-        shipments = data.get("shipments", {}).get("shipment", [])
-        if not isinstance(shipments, list):
-            shipments = [shipments]
-        records = []
-        for s in shipments:
-            try:
-                delivery_days = int(str(s.get("delivery_days", "0")).strip())
-            except ValueError:
-                delivery_days = 0
-            records.append({
-                "shipment_id": str(s.get("shipment_id", "")).strip(),
-                "order_id": str(s.get("order_id", "")).strip(),
-                "delivery_days": delivery_days,
-                "status": str(s.get("status", "")).strip()
-            })
-        if records:
-            df_new = pd.DataFrame(records)
-            df_new.to_sql("shipments", engine, if_exists="append", index=False, method="multi", chunksize=1000)
-        return {"message": "XML data ingested successfully into SQL DB", "records_inserted": len(records)}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error parsing XML: {str(e)}")
-
-@router.post("/ingest/csv")
-async def ingest_csv(file: UploadFile = File(...)):
-    try:
-        content = await file.read()
-        df_new = pd.read_csv(io.BytesIO(content))
-        expected_cols = ["ProductID", "ProductName", "Category"]
-        for col in expected_cols:
-            if col not in df_new.columns:
-                raise ValueError(f"Missing required column: {col}")
-        df_new = df_new.dropna(subset=expected_cols)
-        df_new.to_sql("products", engine, if_exists="append", index=False)
-        return {"message": "CSV data ingested successfully into SQL DB", "records_inserted": len(df_new)}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error processing CSV: {str(e)}")
-
-async def get_exchange_rate(base: str = "USD", target: str = "USD") -> float:
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"https://open.er-api.com/v6/latest/{base}")
-            if resp.status_code == 200:
-                data = resp.json()
-                return data.get("rates", {}).get(target, 1.0)
-    except Exception:
-        pass
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get("https://restcountries.com/v3.1/all")
-    except Exception:
-        pass
-    return 1.0
-
-@router.get("/analytics/summary")
-async def get_analytics_summary(
+async def generate_analytics_summary(
     startDate: Optional[str] = None,
     endDate: Optional[str] = None,
     category: Optional[str] = None,
@@ -101,7 +17,7 @@ async def get_analytics_summary(
     
     if df_orders.empty:
         return {
-            "summary": {"Total Orders": 0, "Total Revenue": 0, "Total Delayed Orders": 0, "Average Delivery Days": 0},
+            "summary": {"Total Orders": 0, "Total Revenue": 0, "Total Delayed Orders": 0, "Average Delivery Days": 0, "Delivery Success Rate": "0%"},
             "revenueTrend": [],
             "categoryBreakdown": [],
             "fulfillmentMetrics": []
@@ -136,7 +52,7 @@ async def get_analytics_summary(
     
     if df.empty:
         return {
-            "summary": {"Total Orders": 0, "Total Revenue": 0, "Total Delayed Orders": 0, "Average Delivery Days": 0},
+            "summary": {"Total Orders": 0, "Total Revenue": 0, "Total Delayed Orders": 0, "Average Delivery Days": 0, "Delivery Success Rate": "0%"},
             "revenueTrend": [],
             "categoryBreakdown": [],
             "fulfillmentMetrics": []

@@ -8,12 +8,14 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.3"
       - key: DATABASE_URL
-        value: "sqlite:////data/dashboard.db"
-    
-    disk:
-      name: sqlite-data
-      mountPath: /data
-      sizeGB: 1
+        sync: false # Set this securely in your Render Dashboard to your Neon Postgres URL
+      - key: SECRET_KEY
+        generateValue: true # Render will automatically generate a secure hex key for you
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: analytics-frontend
+          envVarKey: RENDER_EXTERNAL_URL
 
   - type: web
     name: analytics-frontend
