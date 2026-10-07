@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -112,9 +112,11 @@ function ChartEmptyState({ message = 'No data available' }) {
 function ChartCard({ title, subtitle, children, className = '' }) {
   return (
     <div className={`bg-white border-0 rounded-2xl p-5 sm:p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-1px_rgba(0,0,0,0.03)] relative h-full flex flex-col ${className}`}>
-      <div className="mb-4">
-        <h6 className="text-[#344767] font-bold text-base mb-1">{title}</h6>
-        {subtitle && <p className="text-sm text-[#67748E] font-medium">{subtitle}</p>}
+      <div className="mb-4 flex justify-between items-start">
+        <div>
+          <h6 className="text-[#344767] font-bold text-base mb-1">{title}</h6>
+          {subtitle && <p className="text-sm text-[#67748E] font-medium">{subtitle}</p>}
+        </div>
       </div>
       <div className="relative z-10 flex-1 w-full min-h-[280px]">
         {children}
@@ -158,6 +160,8 @@ export function RevenueTrendChart({ data }) {
     };
   }, [safeData]);
 
+  const [viewMode, setViewMode] = useState('line');
+
   const options = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -172,9 +176,23 @@ export function RevenueTrendChart({ data }) {
   }), []);
 
   return (
-    <ChartCard title="Daily Sales" subtitle="(+15%) increase in today sales." className="lg:col-span-2">
-      {safeData.length === 0 ? <ChartEmptyState /> : <Line ref={chartRef} data={chartData} options={options} />}
-    </ChartCard>
+    <div className="bg-white border-0 rounded-2xl p-5 sm:p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-1px_rgba(0,0,0,0.03)] relative h-full flex flex-col lg:col-span-2">
+      <div className="mb-4 flex justify-between items-start">
+        <div>
+          <h6 className="text-[#344767] font-bold text-base mb-1">Daily Sales</h6>
+          <p className="text-sm text-[#67748E] font-medium">(+15%) increase in today sales.</p>
+        </div>
+        <div className="flex bg-gray-100 rounded-lg p-1">
+          <button onClick={() => setViewMode('line')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'line' ? 'bg-white shadow-sm text-[#344767]' : 'text-gray-500 hover:text-[#344767]'}`}>Line</button>
+          <button onClick={() => setViewMode('bar')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'bar' ? 'bg-white shadow-sm text-[#344767]' : 'text-gray-500 hover:text-[#344767]'}`}>Bar</button>
+        </div>
+      </div>
+      <div className="relative z-10 flex-1 w-full min-h-[280px]">
+        {safeData.length === 0 ? <ChartEmptyState /> : (
+          viewMode === 'line' ? <Line ref={chartRef} data={chartData} options={options} /> : <Bar ref={chartRef} data={chartData} options={options} />
+        )}
+      </div>
+    </div>
   );
 }
 

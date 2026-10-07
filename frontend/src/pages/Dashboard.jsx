@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import FilterBar from '../components/FilterBar';
 import MetricCard from '../components/MetricCard';
 import { RevenueTrendChart, FulfillmentChart, CategoryChart } from '../components/Charts';
+import { Download, RefreshCw } from 'lucide-react';
 
 function Dashboard() {
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState({
     summary: {
       "Total Orders": 0,
@@ -28,7 +30,9 @@ function Dashboard() {
     endDate: ''
   });
 
-  const fetchData = async () => {
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -44,23 +48,50 @@ function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     fetchData();
-  }, [filters]);
+  }, [fetchData]);
+
+  useEffect(() => {
+    let interval;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        fetchData();
+      }, 30000); // 30 seconds
+    }
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchData]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
+  const downloadReport = () => {
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + "Metric,Value\n"
+      + `Total Orders,${data.summary["Total Orders"]}\n`
+      + `Total Revenue,${data.summary["Total Revenue"]}\n`
+      + `Delayed Orders,${data.summary["Total Delayed Orders"]}\n`
+      + `Delivery Success Rate,${data.summary["Delivery Success Rate"]}\n`;
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `analytics_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#67748E] font-sans selection:bg-[#cb0c9f]/30 flex">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <main className="flex-1 max-w-[1400px] w-full px-6 py-4 mx-auto relative overflow-x-hidden">
-        <Navbar loading={loading} onRefresh={fetchData} />
+      <main className="flex-1 max-w-[1400px] w-full px-4 sm:px-6 py-4 mx-auto relative overflow-x-hidden">
+        <Navbar loading={loading} onRefresh={fetchData} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
 
         {loading && (
           <div className="absolute inset-0 bg-[#F8F9FA]/60 backdrop-blur-sm z-40 flex items-center justify-center rounded-2xl mx-6 mt-20">
@@ -69,7 +100,33 @@ function Dashboard() {
         )}
 
         <div className="space-y-6 mt-6">
-          <FilterBar filters={filters} onFilterChange={handleFilterChange} />
+          <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
+            <div className="w-full lg:w-auto flex-1">
+              <FilterBar filters={filters} onFilterChange={handleFilterChange} />
+            </div>
+            
+            <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)] border-0 h-full w-full lg:w-auto justify-between sm:justify-start">
+              <button 
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all flex-1 sm:flex-none justify-center ${autoRefresh ? 'bg-[#cb0c9f]/10 text-[#cb0c9f]' : 'text-[#67748E] hover:bg-gray-50'}`}
+              >
+                <RefreshCw size={16} className={autoRefresh ? "animate-spin-slow" : ""} />
+                <span className="hidden sm:inline">{autoRefresh ? 'Auto Sync On' : 'Auto Sync Off'}</span>
+                <span className="sm:hidden">Sync</span>
+              </button>
+              
+              <div className="w-px h-8 bg-gray-200"></div>
+              
+              <button 
+                onClick={downloadReport}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#141727] text-white rounded-lg text-sm font-bold hover:bg-[#252f40] transition-colors shadow-sm flex-1 sm:flex-none"
+              >
+                <Download size={16} />
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">Export</span>
+              </button>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <MetricCard 

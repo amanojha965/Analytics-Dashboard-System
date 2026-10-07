@@ -1,17 +1,25 @@
 import React from 'react';
-import { Home, LogOut } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Home } from 'lucide-react';
 
-export default function Sidebar() {
-  const { logout } = useAuth();
+export default function Sidebar({ isOpen, onClose }) {
   
   const menuItems = [
     { icon: <Home size={18} />, label: 'Dashboard', active: true },
   ];
 
   return (
-    <aside className="w-64 bg-transparent h-screen sticky top-0 hidden lg:flex flex-col p-4 border-none">
-      <div className="flex items-center gap-3 px-6 py-6 mb-2 border-b border-gray-200/50">
+    <>
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white/90 backdrop-blur-xl lg:bg-transparent lg:static flex flex-col p-4 transition-transform duration-300 shadow-2xl lg:shadow-none ${
+        isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}>
+        <div className="flex items-center gap-3 px-6 py-6 mb-2 border-b border-gray-200/50">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#344767"/>
@@ -45,16 +53,7 @@ export default function Sidebar() {
           ))}
         </ul>
       </div>
-      
-      <div className="mt-auto px-4 pb-4">
-        <button 
-          onClick={logout}
-          className="flex items-center justify-center gap-2 w-full py-2.5 bg-gradient-to-br from-gray-800 to-gray-900 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
-        >
-          <LogOut size={16} />
-          <span>Log Out</span>
-        </button>
-      </div>
     </aside>
+    </>
   );
 }
