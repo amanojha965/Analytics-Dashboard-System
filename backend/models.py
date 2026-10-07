@@ -18,3 +18,17 @@ class Order(BaseModel):
 
 class JSONIngestRequest(BaseModel):
     orders: List[Order]
+
+class UserCreate(BaseModel):
+    name: str
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    username: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str

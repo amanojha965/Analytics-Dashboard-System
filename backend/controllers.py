@@ -3,14 +3,48 @@ import pandas as pd
 import xmltodict
 import httpx
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File
-from models import JSONIngestRequest
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Depends
+from models import JSONIngestRequest, UserCreate, Token
 from database import engine
+from auth import get_current_user, get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from datetime import timedelta
+import sqlalchemy as sa
+from sqlalchemy.sql import text
 
 router = APIRouter()
 
+@router.post("/auth/register")
+async def register(user: UserCreate):
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT id FROM users WHERE username = :username"), {"username": user.username}).fetchone()
+        if result:
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        hashed_password = get_password_hash(user.password)
+        conn.execute(
+            text("INSERT INTO users (name, username, password_hash) VALUES (:name, :username, :password_hash)"),
+            {"name": user.name, "username": user.username, "password_hash": hashed_password}
+        )
+        conn.commit()
+    return {"message": "User registered successfully"}
+
+@router.post("/auth/login", response_model=Token)
+async def login(user: UserCreate):
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT id, username, password_hash FROM users WHERE username = :username"), {"username": user.username}).fetchone()
+        
+        if not result or not verify_password(user.password, result[2]):
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+            
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": result[1]}, expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+
 @router.post("/ingest/json")
-async def ingest_json(request: JSONIngestRequest):
+async def ingest_json(request: JSONIngestRequest, current_user: str = Depends(get_current_user)):
+    # remaining code unchanged...
     records = []
     for order in request.orders:
         for item in order.items:
@@ -93,7 +127,8 @@ async def get_analytics_summary(
     category: Optional[str] = None,
     deliveryStatus: Optional[str] = None,
     page: int = 1,
-    limit: int = 50
+    limit: int = 50,
+    current_user: str = Depends(get_current_user)
 ):
     df_orders = pd.read_sql("SELECT * FROM orders", engine)
     df_shipments = pd.read_sql("SELECT * FROM shipments", engine)

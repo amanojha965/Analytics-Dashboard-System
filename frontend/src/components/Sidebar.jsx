@@ -1,7 +1,10 @@
 import React from 'react';
-import { Home } from 'lucide-react';
+import { Home, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar() {
+  const { logout } = useAuth();
+  
   const menuItems = [
     { icon: <Home size={18} />, label: 'Dashboard', active: true },
   ];
@@ -41,6 +44,16 @@ export default function Sidebar() {
             </li>
           ))}
         </ul>
+      </div>
+      
+      <div className="mt-auto px-4 pb-4">
+        <button 
+          onClick={logout}
+          className="flex items-center justify-center gap-2 w-full py-2.5 bg-gradient-to-br from-gray-800 to-gray-900 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+        >
+          <LogOut size={16} />
+          <span>Log Out</span>
+        </button>
       </div>
     </aside>
   );
