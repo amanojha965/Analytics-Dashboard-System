@@ -132,9 +132,9 @@ export default function Register() {
             &copy; {new Date().getFullYear()} Analytics Dashboard. All rights reserved.
           </p>
           <div className="flex justify-center gap-6 mt-2 text-xs font-semibold text-[#67748E]">
-            <a href="#" className="hover:text-[#141727] transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-[#141727] transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-[#141727] transition-colors">Contact Support</a>
+            <Link to="/privacy" className="hover:text-[#141727] transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-[#141727] transition-colors">Terms of Service</Link>
+            <Link to="/contact" className="hover:text-[#141727] transition-colors">Contact Support</Link>
           </div>
         </div>
       </div>
