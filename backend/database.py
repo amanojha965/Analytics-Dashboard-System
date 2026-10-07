@@ -6,7 +6,12 @@ import pandas as pd
 load_dotenv(os.path.join(os.path.dirname(__file__), "../.env"))
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dashboard.db")
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    connect_args={"connect_timeout": 10} if "postgresql" in DATABASE_URL else {}
+)
 
 def init_db():
     inspector = inspect(engine)

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -6,11 +6,10 @@ import {
   PointElement,
   LineElement,
   BarElement,
-  Title,
   Tooltip,
   Legend,
   Filler,
-  ArcElement
+  ArcElement,
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
@@ -20,202 +19,248 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
-  Title,
   Tooltip,
   Legend,
   Filler,
   ArcElement
 );
 
-// Common Chart.js styling options for dark theme
-const commonOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      labels: {
-        color: '#94a3b8',
-        font: { family: "'Inter', sans-serif", size: 12 }
-      }
-    },
-    tooltip: {
-      backgroundColor: 'rgba(15, 23, 42, 0.9)',
-      titleColor: '#f1f5f9',
-      bodyColor: '#cbd5e1',
-      borderColor: 'rgba(51, 65, 85, 0.5)',
-      borderWidth: 1,
-      padding: 12,
-      cornerRadius: 8,
-      displayColors: true,
-    }
-  },
-  scales: {
-    x: {
-      grid: {
-        display: false,
-        drawBorder: false,
-      },
-      ticks: {
-        color: '#64748b',
-        font: { family: "'Inter', sans-serif" }
-      }
-    },
-    y: {
-      grid: {
-        color: 'rgba(51, 65, 85, 0.3)',
-        drawBorder: false,
-      },
-      ticks: {
-        color: '#64748b',
-        font: { family: "'Inter', sans-serif" },
-        callback: function(value) {
-          return '$' + value.toLocaleString();
-        }
-      }
-    }
-  }
+const COLORS = {
+  primary: '#cb0c9f',
+  info: '#17c1e8',
+  success: '#82d616',
+  warning: '#fbcf33',
+  danger: '#ea0606',
+  dark: '#344767',
+  gray: '#67748E'
 };
+
+const CATEGORY_COLORS = [
+  COLORS.primary,
+  COLORS.info,
+  COLORS.success,
+  COLORS.warning,
+  COLORS.danger,
+];
+
+const formatCurrency = (value) => {
+  const number = Number(value) || 0;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(number);
+};
+
+const formatDate = (date) => {
+  if (!date) return '';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+};
+
+const normalizeData = (data) => Array.isArray(data) ? data : [];
+
+const commonPlugins = {
+  legend: {
+    labels: {
+      color: COLORS.gray,
+      font: { family: "'Open Sans', sans-serif", size: 12 },
+      usePointStyle: true,
+      boxWidth: 8,
+      padding: 18,
+    },
+  },
+  tooltip: {
+    backgroundColor: '#fff',
+    titleColor: COLORS.dark,
+    bodyColor: COLORS.gray,
+    borderColor: 'rgba(0,0,0,0.05)',
+    borderWidth: 1,
+    padding: 12,
+    cornerRadius: 8,
+    displayColors: true,
+    titleFont: { size: 13, weight: '600' },
+    bodyFont: { size: 12 },
+    boxShadow: '0 8px 26px -4px rgba(20,20,20,0.15)',
+  },
+};
+
+const commonAnimation = { duration: 900, easing: 'easeOutQuart' };
+
+const cartesianScales = {
+  x: {
+    border: { display: false },
+    grid: { display: false },
+    ticks: { color: '#9ca2b7', font: { family: "'Open Sans', sans-serif", size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+  },
+  y: {
+    border: { display: false },
+    grid: { color: 'rgba(0, 0, 0, 0.03)', drawTicks: false, borderDash: [5, 5] },
+    ticks: { color: '#9ca2b7', padding: 8, font: { family: "'Open Sans', sans-serif", size: 11 }, callback: (value) => formatCurrency(value) },
+  },
+};
+
+function ChartEmptyState({ message = 'No data available' }) {
+  return (
+    <div className="h-full min-h-[280px] flex flex-col items-center justify-center text-center">
+      <p className="text-sm font-medium text-gray-400">{message}</p>
+    </div>
+  );
+}
+
+function ChartCard({ title, subtitle, children, className = '' }) {
+  return (
+    <div className={`bg-white border-0 rounded-2xl p-5 sm:p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-1px_rgba(0,0,0,0.03)] relative h-full flex flex-col ${className}`}>
+      <div className="mb-4">
+        <h6 className="text-[#344767] font-bold text-base mb-1">{title}</h6>
+        {subtitle && <p className="text-sm text-[#67748E] font-medium">{subtitle}</p>}
+      </div>
+      <div className="relative z-10 flex-1 w-full min-h-[280px]">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function RevenueTrendChart({ data }) {
   const chartRef = useRef(null);
-  const [chartData, setChartData] = useState({ datasets: [] });
+  const safeData = normalizeData(data);
 
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-
-    // Create Gradient for Line Chart
-    const ctx = chart.ctx;
-    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.5)'); // Indigo-500
-    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
-
-    setChartData({
-      labels: data.map(d => d.order_date),
+  const chartData = useMemo(() => {
+    return {
+      labels: safeData.map((item) => formatDate(item.order_date)),
       datasets: [
         {
           label: 'Revenue',
-          data: data.map(d => d.revenue),
-          borderColor: '#6366f1',
-          backgroundColor: gradient,
+          data: safeData.map((item) => Number(item.revenue) || 0),
+          borderColor: COLORS.success,
+          backgroundColor: (context) => {
+            const chart = context.chart;
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return 'rgba(130, 214, 22, 0.1)';
+            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            gradient.addColorStop(0, 'rgba(130, 214, 22, 0.2)');
+            gradient.addColorStop(1, 'rgba(130, 214, 22, 0)');
+            return gradient;
+          },
           borderWidth: 3,
           fill: true,
-          tension: 0.4, // Smooth curves
-          pointRadius: 0, // Hide points
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: COLORS.success,
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
           pointHoverRadius: 6,
-          pointHoverBackgroundColor: '#ffffff',
-          pointHoverBorderColor: '#6366f1',
-          pointHoverBorderWidth: 2,
-        }
-      ]
-    });
-  }, [data]);
+          pointHitRadius: 15,
+        },
+      ],
+    };
+  }, [safeData]);
+
+  const options = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' },
+    animation: commonAnimation,
+    plugins: {
+      ...commonPlugins,
+      legend: { display: false },
+      tooltip: { ...commonPlugins.tooltip, callbacks: { label: (c) => ` Revenue: ${formatCurrency(c.raw)}` } },
+    },
+    scales: cartesianScales,
+  }), []);
 
   return (
-    <div className="lg:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-xl shadow-black/20 relative overflow-hidden group">
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 relative z-10 text-slate-100">
-        <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]"></span>
-        Revenue Trend
-      </h2>
-      <div className="h-[300px] w-full relative z-10">
-        <Line ref={chartRef} data={chartData} options={commonOptions} />
-      </div>
-    </div>
+    <ChartCard title="Daily Sales" subtitle="(+15%) increase in today sales." className="lg:col-span-2">
+      {safeData.length === 0 ? <ChartEmptyState /> : <Line ref={chartRef} data={chartData} options={options} />}
+    </ChartCard>
   );
 }
 
 export function FulfillmentChart({ data }) {
-  const chartData = {
-    labels: data.map(d => d.status),
-    datasets: [
-      {
-        data: data.map(d => d.count),
-        backgroundColor: [
-          '#10b981', // Delivered (Emerald)
-          '#f59e0b', // Delayed (Amber)
-          '#3b82f6', // In Transit (Blue)
-        ],
-        hoverBackgroundColor: [
-          '#059669',
-          '#d97706',
-          '#2563eb',
-        ],
-        borderWidth: 0,
-        hoverOffset: 4,
-      }
-    ]
-  };
+  const safeData = normalizeData(data);
 
-  const options = {
-    ...commonOptions,
-    scales: { x: { display: false }, y: { display: false } },
-    cutout: '75%',
+  const chartData = useMemo(() => {
+    const statusColors = {
+      Delivered: COLORS.success,
+      Delayed: COLORS.warning,
+      'In Transit': COLORS.info,
+      Cancelled: COLORS.danger,
+      Pending: COLORS.gray,
+    };
+    return {
+      labels: safeData.map((item) => item.status || 'Unknown'),
+      datasets: [
+        {
+          data: safeData.map((item) => Number(item.count) || 0),
+          backgroundColor: safeData.map((item, i) => statusColors[item.status] || CATEGORY_COLORS[i % CATEGORY_COLORS.length]),
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 4,
+        },
+      ],
+    };
+  }, [safeData]);
+
+  const options = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '70%',
+    animation: commonAnimation,
     plugins: {
-      ...commonOptions.plugins,
-      legend: {
-        position: 'bottom',
-        labels: {
-          color: '#94a3b8',
-          usePointStyle: true,
-          padding: 20,
-          font: { family: "'Inter', sans-serif", size: 12 }
-        }
-      }
-    }
-  };
+      ...commonPlugins,
+      legend: { position: 'bottom', labels: { ...commonPlugins.legend.labels, padding: 20 } },
+    },
+  }), []);
 
   return (
-    <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-xl shadow-black/20 relative overflow-hidden group">
-      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 relative z-10 text-slate-100">
-        <span className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]"></span>
-        Fulfillment Status
-      </h2>
-      <div className="h-[300px] w-full relative z-10 flex items-center justify-center">
-        <Doughnut data={chartData} options={options} />
-      </div>
-    </div>
+    <ChartCard title="Orders Overview" subtitle="Fulfillment status breakdown">
+      {safeData.length === 0 ? <ChartEmptyState /> : <Doughnut data={chartData} options={options} />}
+    </ChartCard>
   );
 }
 
 export function CategoryChart({ data }) {
-  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-  
-  const chartData = {
-    labels: data.map(d => d.Category),
-    datasets: [
-      {
-        label: 'Revenue',
-        data: data.map(d => d.revenue),
-        backgroundColor: data.map((_, i) => colors[i % colors.length]),
-        borderRadius: 6, // Rounded corners on bars!
-        borderSkipped: false,
-        barPercentage: 0.6,
-      }
-    ]
-  };
+  const safeData = normalizeData(data);
 
-  const options = {
-    ...commonOptions,
+  const chartData = useMemo(() => {
+    return {
+      labels: safeData.map((item) => item.Category || 'Unknown'),
+      datasets: [
+        {
+          label: 'Revenue',
+          data: safeData.map((item) => Number(item.revenue) || 0),
+          backgroundColor: COLORS.dark,
+          borderRadius: 4,
+          borderSkipped: false,
+          barPercentage: 0.5,
+          maxBarThickness: 30,
+        },
+      ],
+    };
+  }, [safeData]);
+
+  const options = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: commonAnimation,
+    interaction: { intersect: false, mode: 'index' },
     plugins: {
-      ...commonOptions.plugins,
-      legend: {
-        display: false // Hide legend for bar chart since x-axis has labels
-      }
-    }
-  };
+      ...commonPlugins,
+      legend: { display: false },
+      tooltip: { ...commonPlugins.tooltip, callbacks: { label: (c) => ` Revenue: ${formatCurrency(c.raw)}` } },
+    },
+    scales: {
+      ...cartesianScales,
+      x: { ...cartesianScales.x, grid: { display: false } },
+      y: { ...cartesianScales.y, grid: { color: 'rgba(0,0,0,0.03)', borderDash: [5, 5] } }
+    },
+  }), []);
 
   return (
-    <div className="lg:col-span-3 bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-xl shadow-black/20 relative overflow-hidden group">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 relative z-10 text-slate-100">
-        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
-        Revenue by Category
-      </h2>
-      <div className="h-[300px] w-full relative z-10">
-        <Bar data={chartData} options={options} />
-      </div>
-    </div>
+    <ChartCard title="Website Views" subtitle="Revenue breakdown by category" className="lg:col-span-3">
+      {safeData.length === 0 ? <ChartEmptyState /> : <Bar data={chartData} options={options} />}
+    </ChartCard>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { TrendingUp, Package, AlertTriangle, CheckCircle } from 'lucide-react';
 import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import FilterBar from './components/FilterBar';
 import MetricCard from './components/MetricCard';
 import { RevenueTrendChart, FulfillmentChart, CategoryChart } from './components/Charts';
@@ -58,53 +58,54 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white font-sans selection:bg-indigo-500/30">
-      <Navbar loading={loading} onRefresh={fetchData} />
-
-      <main className="p-6 max-w-7xl mx-auto space-y-6">
-        <FilterBar filters={filters} onFilterChange={handleFilterChange} />
+    <div className="min-h-screen bg-[#F8F9FA] text-[#67748E] font-sans selection:bg-[#cb0c9f]/30 flex">
+      <Sidebar />
+      
+      <main className="flex-1 max-w-[1400px] w-full px-6 py-4 mx-auto relative overflow-x-hidden">
+        <Navbar loading={loading} onRefresh={fetchData} />
 
         {loading && (
-          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-40 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+          <div className="absolute inset-0 bg-[#F8F9FA]/60 backdrop-blur-sm z-40 flex items-center justify-center rounded-2xl mx-6 mt-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#cb0c9f]"></div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricCard 
-            title="Total Revenue" 
-            value={`$${data.summary["Total Revenue"].toLocaleString()}`} 
-            icon={<TrendingUp size={24} />} 
-            color="from-green-500/20 to-emerald-500/5" 
-            textColor="text-emerald-400" 
-          />
-          <MetricCard 
-            title="Total Orders" 
-            value={data.summary["Total Orders"]} 
-            icon={<Package size={24} />} 
-            color="from-blue-500/20 to-indigo-500/5" 
-            textColor="text-blue-400" 
-          />
-          <MetricCard 
-            title="Delayed Orders" 
-            value={data.summary["Total Delayed Orders"]} 
-            icon={<AlertTriangle size={24} />} 
-            color="from-orange-500/20 to-red-500/5" 
-            textColor="text-orange-400" 
-          />
-          <MetricCard 
-            title="Success Rate" 
-            value={data.summary["Delivery Success Rate"]} 
-            icon={<CheckCircle size={24} />} 
-            color="from-purple-500/20 to-pink-500/5" 
-            textColor="text-purple-400" 
-          />
-        </div>
+        <div className="space-y-6 mt-6">
+          <FilterBar filters={filters} onFilterChange={handleFilterChange} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <RevenueTrendChart data={data.revenueTrend} />
-          <FulfillmentChart data={data.fulfillmentMetrics} />
-          <CategoryChart data={data.categoryBreakdown} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <MetricCard 
+              title="Today's Money" 
+              value={`$${data.summary["Total Revenue"].toLocaleString()}`} 
+              percentage="+55%"
+              iconName="wallet"
+            />
+            <MetricCard 
+              title="Today's Users" 
+              value={data.summary["Total Orders"]} 
+              percentage="+3%"
+              iconName="globe"
+            />
+            <MetricCard 
+              title="New Clients" 
+              value={data.summary["Total Delayed Orders"]} 
+              percentage="-2%"
+              percentageColor="text-red-500"
+              iconName="file"
+            />
+            <MetricCard 
+              title="Sales" 
+              value={data.summary["Delivery Success Rate"]} 
+              percentage="+5%"
+              iconName="cart"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <CategoryChart data={data.categoryBreakdown} />
+            <RevenueTrendChart data={data.revenueTrend} />
+            <FulfillmentChart data={data.fulfillmentMetrics} />
+          </div>
         </div>
       </main>
     </div>
