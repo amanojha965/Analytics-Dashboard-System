@@ -3,7 +3,7 @@ import json
 import httpx
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "../.env"))
 import pandas as pd
 import xmltodict
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
@@ -22,10 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -----------------
-# Database Setup
-# -----------------
-# Default to SQLite, can be overridden with Postgres URL (e.g. postgresql://user:pass@localhost:5432/dbname)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dashboard.db")
 engine = create_engine(DATABASE_URL)
 
@@ -40,9 +36,6 @@ def init_db():
 
 init_db()
 
-# -----------------
-# Pydantic Models
-# -----------------
 class OrderItem(BaseModel):
     product_id: str
     qty: int
@@ -61,9 +54,6 @@ class Order(BaseModel):
 class JSONIngestRequest(BaseModel):
     orders: List[Order]
 
-# -----------------
-# Ingestion APIs
-# -----------------
 @app.post("/ingest/json")
 async def ingest_json(request: JSONIngestRequest):
     records = []
@@ -81,7 +71,7 @@ async def ingest_json(request: JSONIngestRequest):
     
     if records:
         df_new = pd.DataFrame(records)
-        df_new.to_sql("orders", engine, if_exists="append", index=False)
+        df_new.to_sql("orders", engine, if_exists="append", index=False, method="multi", chunksize=1000)
         
     return {"message": "JSON data ingested successfully into SQL DB", "records_inserted": len(records)}
 
@@ -111,7 +101,7 @@ async def ingest_xml(request: Request):
             
         if records:
             df_new = pd.DataFrame(records)
-            df_new.to_sql("shipments", engine, if_exists="append", index=False)
+            df_new.to_sql("shipments", engine, if_exists="append", index=False, method="multi", chunksize=1000)
             
         return {"message": "XML data ingested successfully into SQL DB", "records_inserted": len(records)}
     except Exception as e:
@@ -135,11 +125,7 @@ async def ingest_csv(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error processing CSV: {str(e)}")
 
-# -----------------
-# Transformation & Analytics
-# -----------------
 async def get_exchange_rate(base: str = "USD", target: str = "USD") -> float:
-    # 1. Fetch from Exchange Rates API
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"https://open.er-api.com/v6/latest/{base}")
@@ -149,11 +135,9 @@ async def get_exchange_rate(base: str = "USD", target: str = "USD") -> float:
     except Exception:
         pass
     
-    # 2. As per Exercise.docx, also hitting REST Countries API just to fulfill requirement
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get("https://restcountries.com/v3.1/all")
-            # Usually we'd extract currency info from here, but ER-API is better for actual rates
     except Exception:
         pass
         
@@ -168,7 +152,6 @@ async def get_analytics_summary(
     page: int = 1,
     limit: int = 50
 ):
-    # Read from SQL DB
     df_orders = pd.read_sql("SELECT * FROM orders", engine)
     df_shipments = pd.read_sql("SELECT * FROM shipments", engine)
     df_products = pd.read_sql("SELECT * FROM products", engine)
@@ -181,7 +164,6 @@ async def get_analytics_summary(
             "fulfillmentMetrics": []
         }
         
-    # Drop duplicates that may occur from re-ingesting
     df_orders = df_orders.drop_duplicates()
     df_shipments = df_shipments.drop_duplicates()
     df_products = df_products.drop_duplicates()
@@ -252,8 +234,6 @@ async def get_analytics_summary(
     status_counts["percentage"] = (status_counts["count"] / total_status * 100).round(1)
     fulfillmentMetrics = status_counts.to_dict(orient="records")
     
-    # Optional Pagination for detailed records (if needed later)
-    # detailed_records = df.iloc[(page-1)*limit:page*limit].to_dict(orient="records")
     
     return {
         "summary": summary,

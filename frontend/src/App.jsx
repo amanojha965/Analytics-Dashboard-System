@@ -6,7 +6,7 @@ import FilterBar from './components/FilterBar';
 import MetricCard from './components/MetricCard';
 import { RevenueTrendChart, FulfillmentChart, CategoryChart } from './components/Charts';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function App() {
   const [loading, setLoading] = useState(true);
